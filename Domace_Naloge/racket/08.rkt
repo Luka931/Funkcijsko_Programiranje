@@ -76,19 +76,13 @@
                 (fri (if-then-else-f e)))]
         ))
 
-(define (helperCond xs)
-    (if(= (length xs) 3)
+(define (conditional args ...)
+    (let ([xs (list args ...)])
+         (if(= (length xs) 3)
                 (if-then-else (car xs) (cadr xs) (caddr xs))
                 (if (> (length xs) 3)
-                    (if-then-else (car xs) (cadr xs)  (helperCond (cddr xs)))
-                    (error "Wrong number of parameters."))))
+                    (if-then-else (car xs) (cadr xs)  (conditional (cddr xs)))
+                    (error "Wrong number of parameters.")))))
 
-(define-syntax conditional
-    (syntax-rules()
-    [(conditional args ...) (helperCond (list args ...))]
-    ))
-
-(define-syntax ?geq
-    (syntax-rules()
-    [(?geq e1 e2) (?leq e2 e1)]
-    ))
+(define (?geq e1 e2)
+    (?leq e2 e1))
