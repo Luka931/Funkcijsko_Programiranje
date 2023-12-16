@@ -36,4 +36,3 @@
         [(sml null x) (null? x)]
         [(sml tl x) (cdr x)]
         [(sml x :: y) (append (list x) y)]))
-
