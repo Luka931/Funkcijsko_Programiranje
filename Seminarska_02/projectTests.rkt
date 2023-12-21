@@ -78,7 +78,7 @@
 (define true?t (pr:?bool (pr:if-then-else f (pr:int 12) t)))
 (define false?t (pr:?bool (pr:if-then-else f (pr:int 12) f)))
 (define bool?f (pr:?bool (pr:if-then-else t (pr:int 12) t)))
-(test-case "?int"
+(test-case "?bool"
     (check-equal? (pr:fri true?t) (pr:true) "?bool should return (true) for (true)")
     (check-equal? (pr:fri false?t) (pr:true) "?bool should return (true) for (false)")
     (check-equal? (pr:fri bool?f) (pr:false) "?bool should return (false) for non bool.")
@@ -88,10 +88,40 @@
 (define ..?t2 (pr:?.. (pr:if-then-else f (pr:int 12) (pr:.. (pr:int 1) (pr:empty)))))
 (define ..?f (pr:?.. (pr:if-then-else t (pr:int 12) (pr:.. (pr:int 1) (pr:int 1)))))
 (test-case "?.."
-    (check-equal? (pr:fri ..?t1) (pr:true) "?.. should return (true) for ..")
-    (check-equal? (pr:fri ..?t2) (pr:true) "?.. should return (true) for seq")
-    (check-equal? (pr:fri ..?f) (pr:false) "?.. should return (false) for non ../seq.")
+    (check-equal? (pr:fri ..?t1) t "?.. should return (true) for ..")
+    (check-equal? (pr:fri ..?t2) t "?.. should return (true) for seq")
+    (check-equal? (pr:fri ..?f) f "?.. should return (false) for non ../seq.")
 )
+
+(define empty?t (pr:?empty (pr:empty)))
+(define empty?f (pr:?empty (pr:int 99)))
+(test-case "?empty"
+    (check-equal? (pr:fri empty?t) t "?empty should be (true) for empty.")
+    (check-equal? (pr:fri empty?f) f "?empty should be (false) for non empty.")
+)
+
+(define seq?t (pr:?seq (pr:.. iPos (pr:.. iPos(pr:.. iNeg (pr:empty))))))
+(define seq?f1 (pr:?seq (pr:.. iPos (pr:.. iPos(pr:.. iNeg iNeg)))))
+(define seq?f2 (pr:?seq iNeg))
+(test-case "?seq"
+    (check-equal? (pr:fri seq?t) t "?seq should be (true) for seq")
+    (check-equal? (pr:fri seq?f1) f "?seq should be (false) for .. that doesn't end with (empty)")
+    (check-equal? (pr:fri seq?f2) f "?seq should be (false) for non seq")
+)
+
+(define exception?t (pr:?exception (pr:exception "tralalala")))
+(define exception?f (pr:?exception (pr:int "tralalala")))
+(test-case "?exception"
+    (check-equal? (pr:fri exception?t) t "?exception should be (true) for exception")
+    (check-equal? (pr:fri exception?f) f "?exception should be (false) for non exception")
+)
+
+; (fri (vars "a" (int -12)
+;     (add (valof "a")
+;         (vars (list "a" "b") (list (int 12) (int 99)) (add (valof "a") (valof "b")))
+;     )
+; ))
+
 
 
 
