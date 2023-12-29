@@ -21,10 +21,10 @@
     (cons (* (car promise) (car promise)) (lambda () (squares ((cdr promise))))))
 
 (define (my-delay fun)
-    (mcons #f fun))
+    (mcons 0 fun))
 
 (define (my-force prom)
-    (if (mcar prom)
+    (if (= (mcar prom) 0)
         (mcdr prom)
         (begin (set-mcar! prom #t)
                (set-mcdr! prom ((mcdr prom)))
@@ -35,4 +35,7 @@
         [(sml nil) null]
         [(sml null x) (null? x)]
         [(sml tl x) (cdr x)]
+        [(sml hd x) (car x)]
         [(sml x :: y) (append (list x) y)]))
+
+(define (partitions m n) 1)

@@ -7,6 +7,7 @@
 (struct mul (e1 e2) #:transparent)
 (struct ?leq (e1 e2) #:transparent)
 (struct ?int (exp) #:transparent)
+(struct ~(e1) #:transparent)
 (struct if-then-else (c t f) #:transparent)
 
 (define (intAdd e1 e2) (int (+ (int-int e1) (int-int e2))))
@@ -30,6 +31,12 @@
     (if (and (true? e1) (false? e2))
         (false)
         (true)))
+(define (int~ e)
+    (int (* -1 (int-int e))))
+(define (bool~ e)
+    (if (true? e)
+        (false)
+        (true)))
 
 
 (define (fri e)
@@ -43,9 +50,9 @@
                  [e2 (fri (add-e2 e))])
                 (if (and (int? e1) (int? e2))
                     (intAdd e1 e2)
-                    (if (and (isBool? e1) (isBool? e2))
-                        (boolAdd e1 e2)
-                        (error "Invalide operands for add operator."))))]
+                (if (and (isBool? e1) (isBool? e2))
+                    (boolAdd e1 e2)
+                    (error "Invalide operands for add operator."))))]
         [(mul? e)
             (letrec 
                 ([e1 (fri (mul-e1 e))]
@@ -74,15 +81,21 @@
             (if (true? (if-then-else-c e))
                 (fri (if-then-else-t e))
                 (fri (if-then-else-f e)))]
-        ))
+        [(~? e)(letrec
+            ([evaluated (fri (~-e1 e))])
+            (if (int? evaluated)
+                (int~ evaluated)
+            (if (isBool? evaluated)
+                (bool~ evaluated)
+                (error "Invalide operands for ~ operator."))))]
+))
 
-(define (conditional args ...)
-    (let ([xs (list args ...)])
-         (if(= (length xs) 3)
-                (if-then-else (car xs) (cadr xs) (caddr xs))
-                (if (> (length xs) 3)
-                    (if-then-else (car xs) (cadr xs)  (conditional (cddr xs)))
-                    (error "Wrong number of parameters.")))))
+(define (conditional . args )
+    (if(= (length args) 3)
+                (if-then-else (car args) (cadr args) (caddr args))
+                (if (> (length args) 3)
+                    (if-then-else (car args) (cadr args)  (apply conditional (cddr args)))
+                    (error "Wrong number of parameters."))))
 
 (define (?geq e1 e2)
     (?leq e2 e1))

@@ -1,7 +1,5 @@
 #lang racket
 
-(require rackunit)
-
 (struct int (int) #:transparent)
 (struct true () #:transparent)
 (struct false () #:transparent)
@@ -33,6 +31,7 @@
 (struct proc(name body) #:transparent)
 (struct closure(env f) #:transparent)
 (struct call(e args) #:transparent)
+
 
 ; HelperFunctions for fri interpreter
 
@@ -124,14 +123,14 @@
         #t
         (isInList? el tl)))))
 
-(define (allUnique seq)
-    (if (null? seq)
+(define (allUnique seq)(let*
+    ([hd (car seq)]
+     [tl (cdr seq)])
+    (if (null? tl)
         #t
-    (let ([hd (car seq)]
-          [tl (cdr seq)])
     (if (isInList? hd tl)
         #f
-    (allUnique tl)))))
+        (allUnique tl)))))
 
 (define (expandEnvOne env s e1) (begin
     (define envCopy (hash-copy env))
@@ -158,7 +157,65 @@
         (expandEnvOne env s e1)
         (triggered (exception "vars: number of variables and values don't match")))))
 
-; uci
+; (define (requiredOuter e inner outer)
+;     (cond
+;         [(int? e) outer]
+;         [(true? e) outer]
+;         [(false? e) outer]
+;         [(..? e) outer]
+;         [(empty? e) outer]
+;         [(exception? e) outer]
+;         [(trigger? e) (requiredOuter (trigger-e e) inner outer)]
+;         [(handle? e) (begin
+;             (define outer1 (requiredOuter (handle-e1 e) inner outer))
+;             (define outer2 (requiredOuter (handle-e2 e) inner outer1))
+;             (requiredOuter (handle-e3 e) inner outer2))]
+;         [(if-then-else? e)(begin
+;             (define outer1 (requiredOuter (if-then-else-condition e) inner outer))
+;             (define outer2 (requiredOuter (if-then-else-e1 e) inner outer1))
+;             (requiredOuter (if-then-else-e2 e) inner outer2))]
+;         [(?int? e) (requiredOuter (?int-e e) inner outer)]
+;         [(?bool? e) (requiredOuter (?bool e) inner outer)]
+;         [(?..? e) (requiredOuter (?..-e e) inner outer)]
+;         [(?empty? e) (requiredOuter (?empty-e e) inner outer)]
+;         [(?seq? e) (requiredOuter (?seq e) inner outer)] 
+;         [(?exception? e) (requiredOuter (?exception e) inner outer)]
+;         [(add?)(begin
+;             (define outer1 (requiredOuter (add-e1 e) inner outer))
+;             (requiredOuter (add-e2 e) inner outer1))]
+;         [(mul?)(begin
+;             (define outer1 (requiredOuter (mul-e1 e) inner outer))
+;             (requiredOuter (mul-e2 e) inner outer1))]
+;         [(?leq? e)(begin
+;             (define outer1 (requiredOuter (?leq-e1 e) inner outer))
+;             (requiredOuter (?leq-e2 e) inner outer1))]
+;         [(?=? e)(begin
+;             (define outer1 (requiredOuter (?=-e1 e) inner outer))
+;             (requiredOuter (?=-e2 e) inner outer1))]
+;         [(head? e) (requiredOuter (head-e e) inner outer)]
+;         [(tail? e) (requiredOuter (tail-e e) inner outer)]
+;         [(~? e) (requiredOuter (~-e e) inner outer)]
+;         [(?all? e) (requiredOuter (?all-e e) inner outer)]
+;         [(?any? e) (requiredOuter (?any-e e) inner outer)]
+;         [(vars? e)
+;             (if (and (list? (vars-s e)) (list? (vars-e1 e)))
+;                 (apply append (map (lambda (x) (requiredOuter x inner outer)) (vars-e1 e)))
+
+;             ) 
+        
+;         ]
+;         [(valof? e)
+;             (if (isInList? (valof-s e) inner)
+;                 outer
+;                 (append outer (list (valof-s e))))]
+;         [(fun? e)(begin
+;             (define newInners (append (fun-farg e) (list fun-name e)))
+;             (requiredOuter (fun-body e) (append inner newInners) outer))]
+;         [(proc? e) outer]
+;         [(call? e) (requiredOuter (call-e e) inner outer)]
+;     )
+; )
+
 (define (fri e)
     (friWithEnv (make-hash) e))
         
@@ -167,10 +224,7 @@
         [(int? e) e]
         [(true? e) e]
         [(false? e) e]
-        [(..? e) (letrec
-            ([e1 (friWithEnv env (..-e1 e))]
-             [e2 (friWithEnv env (..-e2 e))])
-            (.. e1 e2))]
+        [(..? e) e]
         [(empty? e) e]
         [(exception? e) e]
         [(trigger? e) (letrec
@@ -291,14 +345,14 @@
                 (true)
                 (false)))))]
         [(head? e)(letrec
-            ([evaluated (friWithEnv env (head-e e))])
+            ([evaluated (friWithEnv (head-e e) env)])
             (if (..? evaluated)
                 (..-e1 evaluated)
             (if (empty? evaluated)
                 (triggered (exception "head: empty sequence"))
                 (triggered (exception "head: wrong argument type")))))]
         [(tail? e)(letrec
-            ([evaluated (friWithEnv env (tail-e e))])
+            ([evaluated (friWithEnv (tail-e e) env)])
             (if (..? evaluated)
                 (..-e2 evaluated)
             (if (empty? evaluated)
@@ -375,51 +429,44 @@
         ))
 
 (define (greater e1 e2)
-    (mul (?leq e2 e1) (~ (and (?leq e2 e1) (?leq e1 e2)))))
+    (fri (mul (?leq e2 e1) (~ (and (?leq e2 e1) (?leq e1 e2))))))
 
 
-(define revHelper (fun "rev" (list "list" "acc")
-    (if-then-else (?empty (valof "list"))
-        (valof "acc")
-        (call (valof "rev") (list (tail (valof "list")) (.. (head (valof "list")) (valof "acc"))))
+(define revHelper (fun "revHelper" (list "givenList" "acc")
+    (if-then-else (?empty (valof "givenList"))
+        (.. (head (valof "givenList")) (valof "acc"))
+        (call (valof "revHelper") (list (tail (valof "givenList")) (.. (head (valof "givenList")) (valof "acc"))))
     )
 ))
 
 (define (rev e) 
-    (call revHelper (list e (empty))))  
+    (fri (call revHelper (list e (empty)))))
 
-(define mappingHelp (fun "map" (list "seq" "f")
-    (if-then-else (?empty (tail (valof "seq")))
-        (.. (call (valof "f") (list (head (valof "seq")))) (empty))
-        (.. (call (valof "f") (list (head (valof "seq"))))
-            (call (valof "map") (list (tail (valof "seq")) (valof "f")))))))
-
-(define (mapping f seq)
-    (call mappingHelp (list seq f)))
+(define k (.. 1 (.. 2 (.. 3 (.. 4 (empty))))))
+(rev k)
 
 
-(define filterHelp (fun "filter" (list "seq" "f")
-    (if-then-else (?empty (tail (valof "seq")))
-        (if-then-else (call (valof "f") (list (head (valof "seq"))))
-            (.. (head (valof "seq")) (empty))
-            (empty))
-        (if-then-else (call (valof "f") (list (head (valof "seq"))))
-            (.. (head (valof "seq")) (call (valof "filter") (list (tail (valof "seq")) (valof "f"))))
-            (call (valof "filter") (list (tail (valof "seq")) (valof "f")))))))
+; (define (binaryHelper num acc)(let 
+;     ([B0 (int 0)]
+;      [B1 (int 1)])
+;     (if (equal? num 0)
+;         acc
+;     (if (equal? (remainder num 2) 1)
+;         (binaryHelper (quotient num 2) (.. B1 acc))
+;         (binaryHelper (quotient num 2) (.. B0 acc))))))
+    
+; (define (binary e)
+;     (binaryHelper e (empty)))
 
-(define (filtering f seq)
-    (call filterHelp (list seq f)))  
+; (provide (all-defined-out))
 
 
-(define foldingHelp (fun "fold" (list "f" "init" "seq")
-    (if-then-else (?empty (valof "seq"))
-        (valof "init")
-        (if-then-else (?empty (tail (valof "seq")))
-            (call (valof "f") (list (valof "init") (head (valof "seq"))))
-            (call (valof "fold") (list (valof "f") 
-                                       (call (valof "f") (list (valof "init") (head (valof "seq")))) 
-                                       (tail (valof "seq"))))))))
-
-(define (folding f init seq)
-    (call foldingHelp (list f init seq)))
-
+; (fri (call
+;       (fun "fib" (list "n")
+;            (if-then-else (?leq (valof "n") (int 2))
+;                          (int 1)
+;                          (add (call (valof "fib")
+;                                     (list (add (valof "n") (int -1))))
+;                               (call (valof "fib")
+;                                     (list (add (valof "n") (int -2)))))))
+;       (list (int 10))))
