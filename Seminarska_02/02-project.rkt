@@ -125,7 +125,7 @@
         (isInList? el tl)))))
 
 (define (allUnique seq)
-    (if (null? seq)
+    (if (or (null? seq) (= (length seq) 1))
         #t
     (let ([hd (car seq)]
           [tl (cdr seq)])
@@ -422,4 +422,18 @@
 
 (define (folding f init seq)
     (call foldingHelp (list f init seq)))
+
+(define binaryHelper (fun "binaryHelper" (list "num" "pow2")
+    (if-then-else (greater (valof "pow2") (valof "num"))
+    (.. (valof "num") (empty))
+    (vars "solution" (call (valof "binaryHelper") (list (valof "num") (mul (int 2) (valof "pow2"))))
+        (if-then-else (?leq (int 0)  (add (~ (valof "pow2")) (head (valof "solution"))))
+            (.. (add (~ (valof "pow2")) (head (valof "solution"))) (.. (int 1) (tail (valof "solution"))))
+            (.. (head (valof "solution")) (.. (int 0) (tail (valof "solution"))))
+        )
+    ))
+))
+
+(define (binary num)
+  (rev (tail (call binaryHelper (list num (int 1))))))
 
