@@ -1,5 +1,7 @@
 #lang racket
 
+(require compatibility/mlist)
+
 (struct int (int) #:transparent)
 (struct true () #:transparent)
 (struct false () #:transparent)
@@ -131,12 +133,35 @@
         #f
     (allUnique tl)))))
 
-(define (expandEnvOne env s e1) (begin
-    (define envCopy (hash-copy env))
-    (hash-set! envCopy s (if (closure? e1) e1 (friWithEnv env e1))) 
-    (if (triggered? e1)
-        e1
-        envCopy)))
+(define (copyEnv env)
+    (if (null? env)
+        null
+        (mappend (mlist (mcons (mcar (mcar env)) (mcdr (mcar env)))) (copyEnv (mcdr env)))
+    )
+)
+
+(define (expandEnvOne env s e1)(letrec
+    ([newEnv (copyEnv env)]
+     [exsisting (massoc s newEnv)]
+     [evaluated (if (closure? e1) e1 (friWithEnv env e1))])
+    (if (triggered? evaluated)
+        evaluated
+    (if exsisting
+        (begin 
+            (set-mcdr! exsisting evaluated)
+            newEnv)
+        (mappend newEnv (mlist (mcons s evaluated)))))
+))
+
+; (define (expandEnvOne env s e1) (letrec
+;     ([envCopy (hash-copy env)]
+;      [evaluated (if (closure? e1) e1 (friWithEnv env e1))]) 
+;     (if (triggered? evaluated)
+;         evaluated
+;         (begin
+;             (hash-set! envCopy s evaluated)
+;             envCopy
+;         ))))
 
 (define (expandEnvSeq env s e1)(let 
     ([newEnv (if (or (null? s) (null? e1)) 
@@ -156,9 +181,8 @@
         (expandEnvOne env s e1)
         (triggered (exception "vars: number of variables and values don't match")))))
 
-; uci
 (define (fri e)
-    (friWithEnv (make-hash) e))
+    (friWithEnv null e))
         
 (define (friWithEnv env e)
     (cond
@@ -193,9 +217,9 @@
              [e2 (if-then-else-e2 e)])
             (if (triggered? condition)
                 condition
-            (if (true? condition)
-                (friWithEnv env e1)
-                (friWithEnv env e2))))]
+            (if (false? condition)
+                (friWithEnv env e2)
+                (friWithEnv env e1))))]
         [(?int? e) (letrec
             ([evaluated (friWithEnv env (?int-e e))])
             (if (triggered? evaluated)
@@ -337,8 +361,12 @@
             (if (triggered? newEnv)
                   newEnv
                   (friWithEnv newEnv e2)))]
-        [(valof? e)
-            (hash-ref env (valof-s e) (lambda () (triggered (exception "valof: undefined variable"))))]
+        [(valof? e)(let
+            ([value (massoc (valof-s e) env)])
+            (if value
+                (mcdr value)
+                (triggered (exception "valof: undefined variable"))))]
+            ; (hash-ref env (valof-s e) (lambda () (triggered (exception "valof: undefined variable"))))
         [(fun? e)(letrec
             ([farg (fun-farg e)])
             (if (allUnique farg)
@@ -356,7 +384,7 @@
                  [body (fun-body (closure-f clOrProc))]
                  [name (fun-name (closure-f clOrProc))])
                 (if (= (length args) (length farg))
-                    (friWithEnv (expandEnvironment envFun (append (list name) farg) (append (list clOrProc) args)) body)
+                    (friWithEnv (expandEnvironment (expandEnvironment envFun name clOrProc) farg args) body)
                     (triggered (exception "call: arity mismatch"))))
             (if (proc? clOrProc)(letrec
                 ([name (proc-name clOrProc)]
@@ -421,10 +449,10 @@
 (define (folding f init seq)
     (call foldingHelp (list f init seq)))
 
-(define binaryHelper (fun "binaryHelper" (list "num" "pow2")
+(define binaryHelper (fun "binary" (list "num" "pow2")
     (if-then-else (greater (valof "pow2") (valof "num"))
     (.. (valof "num") (empty))
-    (vars "solution" (call (valof "binaryHelper") (list (valof "num") (mul (int 2) (valof "pow2"))))
+    (vars "solution" (call (valof "binary") (list (valof "num") (mul (int 2) (valof "pow2"))))
         (if-then-else (?leq (int 0)  (add (~ (valof "pow2")) (head (valof "solution"))))
             (.. (add (~ (valof "pow2")) (head (valof "solution"))) (.. (int 1) (tail (valof "solution"))))
             (.. (head (valof "solution")) (.. (int 0) (tail (valof "solution"))))
@@ -437,4 +465,7 @@
         (.. (int 0) (empty))
         (rev (tail (call binaryHelper (list num (int 1)))))
 ))
+
+
+(fri (binary (int 15556)))
 
