@@ -160,6 +160,9 @@
                 evaluated))
         (fri e1 env)))
 
+(define (zip a b)
+  (apply map list (list a b)))
+
 (define (externalVars env e)
     (cond
         [(int? e) null]
@@ -510,22 +513,21 @@
                   (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip s e1))
                   (fri e2 env))))]
         [(rValof? e)
-            (hash-ref rEnv (rValof-s e) (triggered(exception "rValof: Real variable with this name does not exist.")))]
-        [(recFuns? e)(letrec
-            ([funs (recFuns-funs e)]
-             [funNames (map (lambda (x) (fun-name x)) funs)]
-             [e1 (recFuns-e1 e)]
-             [newEnv (expandEnvironment env funNames (map (lambda (x) (rValof x)) funNames))]
-             [closures (map (lambda (x) (fri x newEnv)) funs)])
-            (begin
-            (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip funNames closures))
-            (fri e1 newEnv)
-            ))]
+            (hash-ref rEnv (rValof-s e) (triggered(exception "rValof: Real variable with this name does not exist")))]
+        [(recFuns? e)
+        (if (and (list? (recFuns-funs e)) (andmap fun? (recFuns-funs e)))
+            (letrec
+                ([funs (recFuns-funs e)]
+                 [funNames (map (lambda (x) (fun-name x)) funs)]
+                 [e1 (recFuns-e1 e)]
+                 [newEnv (expandEnvironment env funNames (map (lambda (x) (rValof x)) funNames))]
+                 [closures (map (lambda (x) (fri x newEnv)) funs)])
+                (begin
+                (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip funNames closures))
+                (fri e1 newEnv)))
+            (triggered(exception "recFuns: wrong argument type")))]
         [#t (triggered (exception "Bad Expression."))]
         ))
-
-(define (zip a b)
-  (apply map list (list a b)))
 
 (define (greater e1 e2)
     (mul (?leq e2 e1) (~ (mul (?leq e2 e1) (?leq e1 e2)))))
