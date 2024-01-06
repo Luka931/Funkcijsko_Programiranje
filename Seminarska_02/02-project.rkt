@@ -153,7 +153,11 @@
 
 (define (evaluateVars e1 env)
     (if (list? e1)
-        (map (lambda (x) (if (closure? x) x (fri x env))) e1)
+        (letrec 
+            ([evaluated (map (lambda (x) (if (closure? x) x (fri x env))) e1)])
+            (if (ormap triggered? evaluated)
+                (findf triggered? evaluated)
+                evaluated))
         (fri e1 env)))
 
 (define (externalVars env e)
@@ -453,7 +457,7 @@
             ([s (vars-s e)]
              [e1 (evaluateVars (vars-e1 e) env)]
              [e2 (vars-e2 e)]
-             [newEnv (expandEnvironment env s e1 )])
+             [newEnv (if (triggered? e1) e1 (expandEnvironment env s e1 ))])
             (if (triggered? newEnv)
                   newEnv
                   (fri e2  newEnv)))]
