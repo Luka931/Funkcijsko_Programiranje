@@ -31,6 +31,9 @@
 (struct proc(name body) #:transparent)
 (struct closure(env f) #:transparent)
 (struct call(e args) #:transparent)
+(struct rVars(s e1 e2) #:transparent)
+(struct rValof(s) #:transparent)
+(struct recFuns(funs e1) #:transparent)
 
 ; HelperFunctions for fri interpreter
 
@@ -249,6 +252,15 @@
                     (externalVars env (call (cdr getValue) args))
                     (list name)))
                 null)))]
+        [(rVars? e)(letrec
+            ([s (rVars-s e)]
+             [e1 (rVars-e1 e)]
+             [e2 (rVars-e2 e)])
+            (if (list? s)
+                (append (apply append (map (lambda (x) (externalVars env x)) e1))
+                        (externalVars (expandEnvironment env s e1) e2))
+                (append (externalVars env e1)
+                        (externalVars (expandEnvironment env s e1) e2))))]
         [#t null]))
 
 (define (keepOnlyNeeded env neededVars)
@@ -260,7 +272,8 @@
         filteredEnv
         (triggered (exception "closure: undefined variable")))))
 
-        
+(define rEnv (make-hash))
+
 (define (fri e env)
     (cond
         [(int? e) e]
@@ -479,9 +492,36 @@
                 (if (= (length args) 0)
                     (fri body (expandEnvironment env name clOrProc))
                     (triggered (exception "call: arity mismatch"))))
-                (triggered (exception "call: wrong argument type"))))))]
+            (if (rValof? clOrProc)
+                (fri (call clOrProc args) env)
+                (triggered (exception "call: wrong argument type"))
+            )))))]
+        [(rVars? e)(letrec
+            ([s (rVars-s e)]
+             [e1 (evaluateVars (rVars-e1 e) env)]
+             [e2 (rVars-e2 e)])
+            (if (triggered? e1)
+                  e1
+                  (begin 
+                  (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip s e1))
+                  (fri e2 env))))]
+        [(rValof? e)
+            (hash-ref rEnv (rValof-s e) (triggered(exception "rValof: Real variable with this name does not exist.")))]
+        [(recFuns? e)(letrec
+            ([funs (recFuns-funs e)]
+             [funNames (map (lambda (x) (fun-name x)) funs)]
+             [e1 (recFuns-e1 e)]
+             [newEnv (expandEnvironment env funNames (map (lambda (x) (rValof x)) funNames))]
+             [closures (map (lambda (x) (fri x newEnv)) funs)])
+            (begin
+            (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip funNames closures))
+            (fri e1 newEnv)
+            ))]
         [#t (triggered (exception "Bad Expression."))]
         ))
+
+(define (zip a b)
+  (apply map list (list a b)))
 
 (define (greater e1 e2)
     (mul (?leq e2 e1) (~ (mul (?leq e2 e1) (?leq e1 e2)))))
@@ -542,4 +582,3 @@
     (if-then-else (?= (int 0) num)
         (.. (int 0) (empty))
         (rev (tail (call binaryHelper (list num (int 1)))))))
-

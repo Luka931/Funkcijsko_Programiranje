@@ -128,3 +128,28 @@
 
 
 
+(define test1 (list 
+    (fun "is-even?" (list "n")
+        (if-then-else (?= (valof "n") (int 0))
+            (true)
+            (call (valof "is-odd?") (list (add (valof "n") (int -1))))))
+    (fun "is-odd?" (list "n")
+        (if-then-else (?= (valof "n") (int 0))
+            (false)
+            (call (valof "is-even?") (list (add (valof "n") (int -1))))))
+))
+
+(define test2 (list 
+    (fun "fib2" (list "n")
+        (call (valof "fib") (list (add (valof "n") (int -2)))))
+    (fun "fib1" (list "n")
+        (call (valof "fib") (list (add (valof "n") (int -1)))))
+    (fun "fib" (list "n")
+        (if-then-else (greater (valof "n") (int 0))
+            (add (call (valof "fib1") (list (valof "n"))) (call (valof "fib2") (list (valof "n"))))
+            (int 1)))
+))
+
+
+(fri (recFuns test1 (call (valof "is-even?") (list (int 12)))) null)
+(fri (recFuns test2 (call (valof "fib") (list (int 4)))) null)
