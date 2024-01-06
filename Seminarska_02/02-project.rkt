@@ -87,8 +87,8 @@
 (define (..Len e)
     (if (empty? e)
         0
-    (if (not (..? (..-e2 e)))
-        1
+    (if (and (not (..? (..-e2 e))) (not (empty? (..-e2 e))))
+        2
         (+ 1 (..Len (..-e2 e))))))
 
 (define (seqLeq? e1 e2)
@@ -119,13 +119,7 @@
         #f)))
 
 (define (allUnique seq)
-    (if (or (null? seq) (= (length seq) 1))
-        #t
-    (let ([hd (car seq)]
-          [tl (cdr seq)])
-    (if (member hd tl)
-        #f
-    (allUnique tl)))))
+  (= (length seq) (length (set->list (list->set seq)))))
 
 (define (expandEnvOne env s e1)(letrec
     ([exists (assoc s env)])
@@ -147,7 +141,7 @@
         (if (allUnique s)
             (expandEnvSeq env s e1)
             (triggered (exception "vars: duplicate identifier")))
-    (if (and (string? s) (not (list? e1)))
+    (if (and (not (list? s)) (not (list? e1)))
         (expandEnvOne env s e1)
         (triggered (exception "vars: number of variables and values don't match")))))
 
@@ -279,7 +273,16 @@
         filteredEnv
         (triggered (exception "closure: undefined variable")))))
 
-(define rEnv (make-hash))
+(define realEnv (make-hash))
+
+(define (expandRealEnvironment s e1)
+    (if (and (list? e1) (list? s) (= (length e1) (length s)))
+        (if (allUnique s)
+            (for-each (lambda (x) (hash-set! realEnv (first x) (second x))) (zip s e1))
+            (triggered (exception "rVars: duplicate identifier")))
+    (if (and (not (list? s)) (not (list? e1)))
+        (hash-set! realEnv s e1)
+        (triggered (exception "rVars: number of variables and values don't match")))))
 
 (define (fri e env)
     (cond
@@ -463,7 +466,7 @@
              [newEnv (if (triggered? e1) e1 (expandEnvironment env s e1 ))])
             (if (triggered? newEnv)
                   newEnv
-                  (fri e2  newEnv)))]
+                  (fri e2 newEnv)))]
         [(valof? e)(let
             ([value (assoc (valof-s e) env)])
             (if value
@@ -504,16 +507,14 @@
                 (triggered (exception "call: wrong argument type"))
             )))))]
         [(rVars? e)(letrec
-            ([s (rVars-s e)]
-             [e1 (evaluateVars (rVars-e1 e) env)]
+            ([e1 (evaluateVars (rVars-e1 e) env)]
+             [possibleErorr (if (triggered? e1) e1 (expandRealEnvironment (rVars-s e) e1))]
              [e2 (rVars-e2 e)])
-            (if (triggered? e1)
-                  e1
-                  (begin 
-                  (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip s e1))
-                  (fri e2 env))))]
+            (if (triggered? possibleErorr)
+                  possibleErorr
+                  (fri e2 env)))]
         [(rValof? e)
-            (hash-ref rEnv (rValof-s e) (triggered(exception "rValof: Real variable with this name does not exist")))]
+            (hash-ref realEnv (rValof-s e) (triggered(exception "rValof: Real variable with this name does not exist")))]
         [(recFuns? e)
         (if (and (list? (recFuns-funs e)) (andmap fun? (recFuns-funs e)))
             (letrec
@@ -523,7 +524,7 @@
                  [newEnv (expandEnvironment env funNames (map (lambda (x) (rValof x)) funNames))]
                  [closures (map (lambda (x) (fri x newEnv)) funs)])
                 (begin
-                (for-each (lambda (x) (hash-set! rEnv (first x) (second x))) (zip funNames closures))
+                (for-each (lambda (x) (hash-set! realEnv (first x) (second x))) (zip funNames closures))
                 (fri e1 newEnv)))
             (triggered(exception "recFuns: wrong argument type")))]
         [#t (triggered (exception "Bad Expression."))]
