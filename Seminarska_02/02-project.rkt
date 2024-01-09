@@ -531,7 +531,7 @@
         ))
 
 (define (greater e1 e2)
-    (mul (?leq e2 e1) (~ (mul (?leq e2 e1) (?leq e1 e2)))))
+    (~ (?leq e1 e2)))
 
 
 (define revHelper (fun "rev" (list "list" "acc")
@@ -577,11 +577,11 @@
 
 (define binaryHelper (fun "binary" (list "num" "pow2")
     (if-then-else (greater (valof "pow2") (valof "num"))
-    (.. (valof "num") (empty))
-    (vars "solution" (call (valof "binary") (list (valof "num") (mul (int 2) (valof "pow2"))))
-        (if-then-else (?leq (int 0)  (add (~ (valof "pow2")) (head (valof "solution"))))
-            (.. (add (~ (valof "pow2")) (head (valof "solution"))) (.. (int 1) (tail (valof "solution"))))
-            (.. (head (valof "solution")) (.. (int 0) (tail (valof "solution")))))))))
+        (.. (valof "num") (empty))
+        (vars "solution" (call (valof "binary") (list (valof "num") (mul (int 2) (valof "pow2"))))
+            (if-then-else (?leq (int 0)  (add (~ (valof "pow2")) (head (valof "solution"))))
+                (.. (add (~ (valof "pow2")) (head (valof "solution"))) (.. (int 1) (tail (valof "solution"))))
+                (.. (head (valof "solution")) (.. (int 0) (tail (valof "solution")))))))))
 
 (define (binary num)
     (if-then-else (?= (int 0) num)
