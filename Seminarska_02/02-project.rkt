@@ -587,3 +587,4 @@
     (if-then-else (?= (int 0) num)
         (.. (int 0) (empty))
         (rev (tail (call binaryHelper (list num (int 1)))))))
+        

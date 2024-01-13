@@ -123,9 +123,10 @@
 ; ))
 
 
-
-
-
+(define test (rVars "a" (int 10) 
+    (if-then-else (?= (int 10) (rVars "a" (add (int 15) (rValof "a")) (rValof "a")))
+        (true)
+        (rValof "a"))))
 
 
 (define test1 (list 
@@ -144,12 +145,14 @@
         (call (valof "fib") (list (add (valof "n") (int -2)))))
     (fun "fib1" (list "n")
         (call (valof "fib") (list (add (valof "n") (int -1)))))
+    (fun "zero" null
+        (int 0))
     (fun "fib" (list "n")
         (if-then-else (greater (valof "n") (int 0))
-            (add (call (valof "fib1") (list (valof "n"))) (call (valof "fib2") (list (valof "n"))))
+            (add (call (valof "zero") null) (add (call (valof "fib1") (list (valof "n"))) (call (valof "fib2") (list (valof "n")))))
             (int 1)))
 ))
 
-
+(fri test null)
 (fri (recFuns test1 (call (valof "is-even?") (list (int 12)))) null)
 (fri (recFuns test2 (call (valof "fib") (list (int 4)))) null)
